@@ -2,12 +2,14 @@
 #include "attrs.h"
 #include <ctype.h>
 #include <stdbool.h>
+#include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 ATTR_PURE
-static size_t count_args(char *line) {
+static size_t count_args(const char *line) {
   size_t count = 0;
-  char *p = line;
+  const char *p = line;
   bool in_arg = false;
 
   while (*p != '\0') {
@@ -23,15 +25,56 @@ static size_t count_args(char *line) {
   return count;
 }
 
-char **parse_line_arguments(char *line) {
-  size_t args_num = count_args(line);
+ATTR_PURE
+static size_t count_commands(const char *line) {
+  if (*line == '\0')
+    return 0;
+
+  size_t count = 1;
+  const char *p = line;
+  while (*p != '\0') {
+    if (*p == '|')
+      count++;
+    p++;
+  }
+
+  return count;
+}
+
+size_t parse_line_commands(char *line, char **commands[]) {
+  size_t commands_num = count_commands(line);
+  if (commands_num < 1)
+    return commands_num;
+
+  *commands = malloc((commands_num) * sizeof(char *));
+  if (!*commands) {
+    perror("malloc");
+    exit(EXIT_FAILURE);
+  }
+
+  char *token = strtok(line, "|");
+  for (size_t i = 0; i < commands_num; i++) {
+    (*commands)[i] = token;
+    token = strtok(NULL, "|");
+  }
+
+  return commands_num;
+}
+
+ATTR_NODISCARD ATTR_ALLOC char **parse_command_arguments(char *command) {
+  size_t args_num = count_args(command);
 
   if (args_num < 1) {
     return NULL;
   }
 
   char **args = malloc((args_num + 1) * sizeof(char *));
-  char *p = line;
+  if (!args) {
+    perror("malloc");
+    exit(EXIT_FAILURE);
+  }
+
+  char *p = command;
 
   bool in_arg = false;
   size_t arg_num = 0;
